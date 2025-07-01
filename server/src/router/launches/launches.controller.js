@@ -2,6 +2,7 @@ const {
   getAllLaunches,
   abortLaunch,
   scheduleLaunch,
+  existsLaunchWithId,
 } = require("../../model/launches.model");
 const Joi = require("joi");
 
@@ -19,6 +20,7 @@ async function httpGetAllLaunches(req, res) {
 
 async function httpPostLaunch(req, res) {
   const launch = req.body;
+  launch.launchDate = new Date(launch.launchDate);
   const { error } = launchSchema.validate(launch);
 
   if (error) {
@@ -33,14 +35,8 @@ async function httpPostLaunch(req, res) {
 
 async function httpAbortLaunch(req, res) {
   const flightNumber = Number(req.params.id);
-  const launches = Array.from(await getAllLaunches());
-  if (!flightNumber || isNaN(flightNumber)) {
-    return res.status(400).json({
-      error: "Flight number is required",
-    });
-  }
 
-  if (!launches.some((launch) => launch.flightNumber === flightNumber)) {
+  if (!(await existsLaunchWithId(flightNumber))) {
     return res.status(404).json({
       error: "launch not found",
     });
