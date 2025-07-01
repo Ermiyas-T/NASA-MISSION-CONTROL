@@ -30,7 +30,12 @@ async function httpPostLaunch(req, res) {
   }
 
   const addedLaunch = await scheduleLaunch(launch);
-  return res.status(200).json(addedLaunch);
+  if (!addedLaunch) {
+    return res
+      .status(500)
+      .json({ error: "unexpected error happenend on add Launch" });
+  }
+  return res.status(200).json({ ok: true });
 }
 
 async function httpAbortLaunch(req, res) {
@@ -41,7 +46,13 @@ async function httpAbortLaunch(req, res) {
       error: "launch not found",
     });
   }
-  return res.status(200).json(await abortLaunch(flightNumber));
+  const aborted = await abortLaunch(flightNumber);
+  if (!aborted) {
+    return res
+      .status(400)
+      .json({ error: "unexpected error occured on abort launch" });
+  }
+  return res.status(200).json({ ok: true });
 }
 
 module.exports = {
