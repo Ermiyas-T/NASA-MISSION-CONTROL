@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { parse } = require("csv-parse");
-const planets = require("./planets.mongo.js");
+const planetDatabase = require("./planets.mongo.js");
 
 function isHabitablePlanet(planet) {
   return (
@@ -25,7 +25,7 @@ async function loadPlanetData() {
       )
       .on("data", async (data) => {
         if (isHabitablePlanet(data)) {
-          await planets.updateOne(
+          await planetDatabase.updateOne(
             { keplerName: data.kepler_name },
             {
               $set: {
@@ -43,15 +43,15 @@ async function loadPlanetData() {
       .on("end", async () => {
         const result = await getAllPlanets();
         console.log(`${result.length} habitable planets found!`);
-        resolve(planets); // Resolve the promise on completion
+        resolve(planetDatabase); // Resolve the promise on completion
       });
   });
 }
 async function getAllPlanets() {
-  return await planets.find({});
+  return await planetDatabase.find({});
 }
 module.exports = {
   loadPlanetData,
-  planets,
+  planets: planetDatabase,
   getAllPlanets,
 };

@@ -16,11 +16,11 @@ async function httpGetLaunches() {
   if (!response.ok) {
     throw new Error("Failed to fetch launches");
   }
-  let fetchedLaunches = await response.json();
-  fetchedLaunches = fetchedLaunches.sort(
-    (a, b) => a.flightNumber - b.flightNumber
-  );
-  return await fetchedLaunches;
+  // let fetchedLaunches = await response.json();
+  // fetchedLaunches = fetchedLaunches.sort(
+  //   (a, b) => a.flightNumber - b.flightNumber
+  // );
+  return await response.json();
 }
 
 async function httpSubmitLaunch(launch) {

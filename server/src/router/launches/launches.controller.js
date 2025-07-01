@@ -1,37 +1,39 @@
 const {
   getAllLaunches,
   abortLaunch,
-  addLaunch,
+  scheduleLaunch,
 } = require("../../model/launches.model");
-function httpGetAllLaunches(req, res) {
-  return res.status(200).json(getAllLaunches());
+const Joi = require("joi");
+
+// Joi schema for launch validation
+const launchSchema = Joi.object({
+  missionName: Joi.string().required(),
+  rocketType: Joi.string().required(),
+  launchDate: Joi.date().required(),
+  target: Joi.string().required(),
+});
+
+async function httpGetAllLaunches(req, res) {
+  return res.status(200).json(await getAllLaunches());
 }
-function httpPostLaunch(req, res) {
+
+async function httpPostLaunch(req, res) {
   const launch = req.body;
-  if (!launch) {
-    res.status(404).json({ error: "Bad request -- No data sent to server" });
-  }
-  if (
-    !launch.missionName ||
-    !launch.rocketType ||
-    !launch.launchDate ||
-    !launch.target
-  ) {
+  const { error } = launchSchema.validate(launch);
+
+  if (error) {
     return res.status(400).json({
-      error: "Missing required launch property",
-    });
-  } else if (isNaN(Date.parse(launch.launchDate))) {
-    return res.status(400).json({
-      error: "Invalid launch date -- the data must be in ISO format",
+      error: error.details[0].message,
     });
   }
-  const addedLaunch = addLaunch(launch);
+
+  const addedLaunch = await scheduleLaunch(launch);
   return res.status(200).json(addedLaunch);
 }
 
-function httpAbortLaunch(req, res) {
+async function httpAbortLaunch(req, res) {
   const flightNumber = Number(req.params.id);
-  const launches = getAllLaunches();
+  const launches = Array.from(await getAllLaunches());
   if (!flightNumber || isNaN(flightNumber)) {
     return res.status(400).json({
       error: "Flight number is required",
@@ -43,8 +45,9 @@ function httpAbortLaunch(req, res) {
       error: "launch not found",
     });
   }
-  return res.status(200).json(abortLaunch(flightNumber));
+  return res.status(200).json(await abortLaunch(flightNumber));
 }
+
 module.exports = {
   httpGetAllLaunches,
   httpPostLaunch,

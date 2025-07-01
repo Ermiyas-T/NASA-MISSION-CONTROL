@@ -6,9 +6,9 @@ const app = require("./app.js");
 
 const PORT = process.env.PORT;
 
-function startHttpServer() {
+async function startHttpServer() {
   try {
-    loadPlanetData();
+    await loadPlanetData();
     console.log("Planet data loaded successfully.");
     const server = http.createServer(app);
     server.listen(PORT, () => {
