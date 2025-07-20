@@ -1,23 +1,12 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const cors = require("cors");
-require("dotenv").config();
+const connectDatabase = require("../config/DBConnection.js");
 const app = express();
-
+connectDatabase().then((res) => {});
 const planetRouter = require("./router/planets/planets.router.js");
 const launchRouter = require("./router/launches/launches.router.js");
-const pathname = require("path");
 // Load environment variables from .env file
 // Connect to MongoDB
-const MONGO_URL = process.env.MONGO_URL;
-mongoose
-  .connect(MONGO_URL)
-  .then(() => {
-    console.log("Connected to MongoDB successfully.");
-  })
-  .catch((error) => {
-    console.error("-----Error connecting to MongoDB:", error);
-  });
 
 app.use(
   cors({

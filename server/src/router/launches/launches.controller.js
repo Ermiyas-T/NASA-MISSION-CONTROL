@@ -1,8 +1,8 @@
 const {
   getAllLaunches,
   abortLaunch,
-  scheduleLaunch,
-  existsLaunchWithId,
+  checkLaunchExist,
+  addLaunch,
 } = require("../../model/launches.model");
 const Joi = require("joi");
 
@@ -15,7 +15,20 @@ const launchSchema = Joi.object({
 });
 
 async function httpGetAllLaunches(req, res) {
-  return res.status(200).json(await getAllLaunches());
+  //programatically pass query param to getAllLaunches if query is present if not leave the default
+  const query = { ...req.query };
+  if (!query.page) query.page = 1;
+  if (!query.limit) query.limit = 5;
+  const launches = await getAllLaunches(query);
+  if (!launches) {
+    return res.status(500).json({
+      error: "unexpected error happened on get launches",
+    });
+  }
+  return res.status(200).json({
+    ok: true,
+    launches: launches,
+  });
 }
 
 async function httpPostLaunch(req, res) {
@@ -29,19 +42,19 @@ async function httpPostLaunch(req, res) {
     });
   }
 
-  const addedLaunch = await scheduleLaunch(launch);
+  const addedLaunch = await addLaunch(launch);
   if (!addedLaunch) {
     return res
       .status(500)
       .json({ error: "unexpected error happenend on add Launch" });
   }
-  return res.status(200).json({ ok: true });
+  return res.status(200).json({ ok: true, launch: addedLaunch });
 }
 
 async function httpAbortLaunch(req, res) {
   const flightNumber = Number(req.params.id);
 
-  if (!(await existsLaunchWithId(flightNumber))) {
+  if (!(await checkLaunchExist(flightNumber))) {
     return res.status(404).json({
       error: "launch not found",
     });

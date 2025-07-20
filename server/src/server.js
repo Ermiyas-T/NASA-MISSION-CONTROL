@@ -1,8 +1,8 @@
 const http = require("http");
 const os = require("os");
 // const cluster = require("cluster");
-const { loadPlanetData } = require("./model/planets.model.js");
 const app = require("./app.js");
+const { loadPlanetData } = require("./model/planets.model.js");
 
 const PORT = process.env.PORT;
 

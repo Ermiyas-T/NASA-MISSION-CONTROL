@@ -1,95 +1,134 @@
-const launchesCollection = require("./launches.mongo");
-const planetsCollection = require("./planets.mongo");
-
-const launch = {
-  missionName: "Mission to Kepler - 1652",
-  rocketType: "Explorer ISI",
-  launchDate: "June 30, 2025",
-  target: "Kepler-442 b",
-  customers: ["ET", "NASA"],
-  success: true,
-  upcomming: true,
-};
-async function deleteAllLaunches() {
-  await launchesCollection.deleteMany();
-}
-
-getLatestFlightNumber().then((flightNumber) => {
-  if (flightNumber === 99) {
-    new Promise(() => {
-      launch.flightNumber = flightNumber;
-      saveLaunch(launch).then(() => {});
-    }).then(() => {});
+const Launch = require("./launches.mongo");
+const axios = require("axios"); // FIX: Use standard axios unless you have a custom config
+const getPagination = require("../../utils/paginate");
+loadLaunchesFromAPI();
+//TODO: load launches from SpaceX api
+async function loadLaunchesFromAPI() {
+  const launches = Launch.find({});
+  if (!launches.length) {
+    // await Launch.deleteMany({});
+    try {
+      // FIX: Use full SpaceX API URL
+      const { data } = await axios.post(
+        "https://api.spacexdata.com/v4/launches/query",
+        {
+          query: {},
+          options: {
+            populate: [
+              {
+                path: "rocket",
+                select: {
+                  name: 1,
+                },
+              },
+              {
+                path: "payloads",
+                select: {
+                  customers: 1,
+                },
+              },
+            ],
+            pagination: false, // FIX: Ensure pagination is set to false
+          },
+        }
+      );
+      if (data) {
+        // console.log(data["docs"][0]);
+        const docs = data["docs"];
+        for (const doc of docs) {
+          const launch = {
+            flightNumber: doc.flight_number,
+            missionName: doc.name,
+            rocketType: doc.rocket.name,
+            launchDate: doc.date_local,
+            target: "", // Not applicable, can be set to a default value
+            customers: doc.payloads.flatMap((payload) => payload.customers),
+            upcoming: doc.upcoming, // Assuming all fetched launches are upcoming
+            success: doc.success,
+          };
+          await Launch.updateOne(
+            { flightNumber: launch.flightNumber },
+            launch,
+            {
+              upsert: true,
+            }
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Error loading launches from API:", err);
+    }
+    const launches = await getAllLaunches();
+    console.log(
+      "successfully loaded ",
+      launches.length,
+      " launches data from API"
+    );
+  } else {
+    console.log("Database is ready with loaded launches");
   }
-});
-async function saveLaunch(launch) {
-  launch.flightNumber = (await getLatestFlightNumber()) + 1;
-
-  await launchesCollection.findOneAndUpdate(
-    { flightNumber: launch.flightNumber },
-    launch,
-    { upsert: true }
-  );
-  return launch;
 }
-async function existsLaunchWithId(flightNumberId) {
-  return await launchesCollection.findOne({ flightNumber: flightNumberId });
+
+// FIX: Make this function async and use 'some' instead of 'includes', and await getAllLaunches
+async function checkLaunchExist(id) {
+  const launch = await Launch.findOne({ flightNumber: id });
+  if (launch) {
+    return 1;
+  } else {
+    return 0;
+  }
 }
 async function getLatestFlightNumber() {
-  // Get all lists of flightNumber and then sort in ascending order and get the last Number
-  const latestLaunches = await launchesCollection
-    .findOne({}, { flightNumber: 1, _id: 0 })
-    .sort({ flightNumber: -1 });
-  if (!latestLaunches) {
-    return 99;
-  }
-  return latestLaunches.flightNumber;
+  const latestLaunch = await Launch.findOne().sort({ flightNumber: -1 });
+  const latestFlightNumber = latestLaunch ? latestLaunch.flightNumber : 0;
+  return +latestFlightNumber;
 }
-async function getAllLaunches() {
+async function getAllLaunches(query) {
+  const { limit, skip } = getPagination(query);
   try {
-    const launches = await launchesCollection.find({}, { _id: 0, __v: 0 });
-
+    const launches = await Launch.find()
+      .sort({ flightNumber: 1 })
+      .limit(limit)
+      .skip(skip);
     return launches;
   } catch (err) {
-    return err;
+    console.error("Error getting launches:", err); // FIX: Log error
+    throw new Error("Failed to get launches");
   }
 }
 
-async function scheduleLaunch(launch) {
-  //check whether the target is valid ( among the habitable planets)
-  const planet = await planetsCollection.findOne({ keplerName: launch.target });
-  if (!planet) {
-    throw new Error("Target Planet is Invalid");
+async function addLaunch(launch) {
+  if (await checkLaunchExist(launch.flightNumber)) {
+    // FIX: Await checkLaunchExist
+    throw new Error("Launch already exists");
   }
-  //add the remaining constant launches properties
-  const newLaunch = Object.assign(launch, {
-    upcomming: true,
-    success: true,
-    customers: ["NASA", "ET"],
-    flightNumber: (await getLatestFlightNumber()) + 1,
+  const latestFlightNumber = await getLatestFlightNumber(); // FIX: Await getLatestFlightNumber
+  launch.flightNumber = latestFlightNumber;
+  launch.upcoming = true; // FIX: Typo 'upcomming' -> 'upcoming'
+  launch.success = true;
+  launch.launchDate = new Date(launch.launchDate);
+  await Launch.updateOne({ flightNumber: launch.flightNumber }, launch, {
+    upsert: true,
   });
-
-  //save on the database
-  return await saveLaunch(newLaunch);
+  return launch;
 }
+
 async function abortLaunch(flightNumber) {
-  try {
-    await launchesCollection.updateOne(
-      { flightNumber: flightNumber },
-      { upcomming: false, success: false }
+  const launch = await Launch.findOne({ flightNumber }); // FIX: Use Launch.findOne and await
+  if (launch) {
+    await Launch.updateOne(
+      { flightNumber: launch.flightNumber },
+      { upcoming: false, success: false }
     );
-  } catch (err) {
-    throw new Error("failed to abort the launch");
+    return launch.flightNumber;
+  } else {
+    throw new Error("Not found"); // FIX: Throw error for not found
   }
-
-  return await launchesCollection.findOne(
-    { flightNumber: flightNumber },
-    { _id: 0, __v: 0 }
-  );
 }
+
 module.exports = {
-  existsLaunchWithId,
   getAllLaunches,
-  scheduleLaunch,
+  addLaunch,
   abortLaunch,
+  checkLaunchExist,
 };

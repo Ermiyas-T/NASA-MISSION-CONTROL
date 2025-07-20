@@ -15,7 +15,7 @@ const Upcoming = (props) => {
 
   const tableBody = useMemo(() => {
     return launches
-      ?.filter((launch) => launch.upcomming)
+      ?.filter((launch) => !launch.upcoming)
       .map((launch) => {
         return (
           <tr key={String(launch.flightNumber)}>
@@ -50,7 +50,6 @@ const Upcoming = (props) => {
         <table style={{ tableLayout: "fixed" }}>
           <thead>
             <tr>
-              <th style={{ width: "3rem" }}></th>
               <th style={{ width: "3rem" }}>No.</th>
               <th style={{ width: "10rem" }}>Date</th>
               <th style={{ width: "11rem" }}>Mission</th>
